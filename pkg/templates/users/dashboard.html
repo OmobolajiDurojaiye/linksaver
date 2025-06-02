@@ -6,20 +6,23 @@
     <title>LinkSaver - Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users/dashboard.css') }}" />
     <style>
-        #flash-messages-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-            max-width: 400px;
-        }
-        
+        /* Minor inline styles for quick overrides or specific adjustments if needed. 
+           Preferably keep styles in dashboard.css */
         .link-url {
-            word-break: break-all;
+            word-break: break-all; /* Ensure long URLs don't break layout */
         }
-        
         .link-description {
-            word-break: break-word;
+            word-break: break-word; /* Allow descriptions to wrap nicely */
+        }
+        .form-error-message {
+            display: block;
+            color: #ff6b6b; /* Danger color */
+            font-size: 0.85em;
+            margin-top: 0.3rem;
+        }
+        .error-input {
+            border-color: #ff6b6b !important; /* Ensure error border is visible */
+            background-color: rgba(255, 107, 107, 0.05) !important;
         }
     </style>
 </head>
@@ -28,9 +31,9 @@
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <h1 class="logo">LinkSaver</h1>
+                <a href="{{ url_for('dashboard.index') }}" class="logo">LinkSaver</a>
                 <div class="user-actions">
-                    <span class="username">Welcome, {{ user.name if user else 'User' }}!</span>
+                    <span class="username">Welcome, {{ user.name | e if user else 'User' }}!</span>
                     <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary logout-btn">Logout</a>
                 </div>
             </div>
@@ -43,8 +46,8 @@
     <div id="flash-messages-container">
         {% for category, message in messages %}
         <div class="alert alert-{{ category }}">
-            {{ message }}
-            <button type="button" class="close" onclick="this.parentElement.style.display='none'">×</button>
+            {{ message | e }}
+            <button type="button" class="close" aria-label="Close" onclick="this.parentElement.style.transition='opacity 0.3s ease, transform 0.3s ease'; this.parentElement.style.opacity='0'; this.parentElement.style.transform='translateX(100%)'; setTimeout(() => this.parentElement.remove(), 300);">×</button>
         </div>
         {% endfor %}
     </div>
@@ -60,11 +63,17 @@
             <!-- Dashboard Header -->
             <div class="dashboard-header">
                 <h2>Your Saved Links</h2>
-                <button type="button" class="btn btn-primary add-link-btn" id="addLinkBtn">+ Add New Link</button>
+                <button type="button" class="btn btn-primary add-link-btn" id="addLinkBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16" style="margin-right: 0.3em;">
+                        <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                    </svg>
+                    Add New Link
+                </button>
             </div>
 
             <!-- Stats Section -->
-            <div class="stats-section" id="statsSection">
+            <section class="stats-section" id="statsSection" aria-labelledby="statsHeading">
+                <h2 id="statsHeading" class="visually-hidden">Link Statistics</h2>
                 <div class="stat-card">
                     <span class="stat-number" id="totalLinks">{{ stats.total_links }}</span>
                     <span class="stat-label">Total Links</span>
@@ -73,33 +82,38 @@
                     <span class="stat-number" id="totalCategories">{{ stats.categories | length }}</span>
                     <span class="stat-label">Categories</span>
                 </div>
-            </div>
+                <!-- Add more stats here if needed -->
+            </section>
 
             <!-- Search and Filter Section -->
-            <form method="GET" action="{{ url_for('dashboard.index') }}" id="filterSearchForm">
+            <form method="GET" action="{{ url_for('dashboard.index') }}" id="filterSearchForm" role="search">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="search-section">
                     <div class="search-container">
-                        <input type="text" 
+                        <label for="searchInput" class="visually-hidden">Search links</label>
+                        <input type="search" 
                                id="searchInput" 
                                name="search" 
                                class="search-input"
-                               placeholder="Search links by title, keywords, or category..."
-                               value="{{ search_term or '' }}" />
+                               placeholder="Search by title, URL, keywords..."
+                               value="{{ search_term | e or '' }}" />
                         <button type="submit" class="btn btn-accent search-btn">Search</button>
                     </div>
                     <div class="filter-container">
+                        <label for="categoryFilter" class="visually-hidden">Filter by category</label>
                         <select id="categoryFilter" name="category" class="filter-select">
                             <option value="">All Categories</option>
                             {% for cat_name in categories_for_filter %}
-                            <option value="{{ cat_name }}" {% if cat_name == selected_category %}selected{% endif %}>
-                                {{ cat_name | capitalize }}
+                            <option value="{{ cat_name | e }}" {% if cat_name == selected_category %}selected{% endif %}>
+                                {{ cat_name | capitalize | e }}
                             </option>
                             {% endfor %}
                         </select>
+                        {% if search_term or selected_category %}
                         <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary clear-btn" id="clearFiltersBtn">
-                            Clear Filters
+                            Clear
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </form>
@@ -108,49 +122,51 @@
             {% if links %}
             <div class="links-grid" id="linksGrid">
                 {% for link_item in links %}
-                <div class="link-card" 
+                <article class="link-card" 
+                     tabindex="0"
+                     aria-labelledby="link-title-{{ link_item.id }}"
                      data-id="{{ link_item.id }}"
-                     data-url="{{ link_item.url }}"
-                     data-title="{{ link_item.title }}"
-                     data-description="{{ link_item.description or '' }}"
-                     data-category="{{ link_item.category or '' }}"
-                     data-keywords="{{ (link_item.get_keywords_list() | join(',')) if link_item.get_keywords_list() else '' }}">
+                     data-url="{{ link_item.url | e }}"
+                     data-title="{{ link_item.title | e }}"
+                     data-description="{{ link_item.description | e or '' }}"
+                     data-category="{{ link_item.category | e or '' }}"
+                     data-keywords="{{ (link_item.get_keywords_list() | join(',')) | e if link_item.get_keywords_list() else '' }}">
                     
                     <div class="link-header">
                         <div>
-                            <h3 class="link-title">{{ link_item.title }}</h3>
-                            <div class="link-url" title="{{ link_item.url }}">{{ link_item.url | truncate(60) }}</div>
+                            <h3 class="link-title" id="link-title-{{ link_item.id }}">{{ link_item.title | e }}</h3>
+                            <div class="link-url" title="{{ link_item.url | e }}">{{ link_item.url | e | truncate(60) }}</div>
                         </div>
                         <div class="link-actions">
-                            <button type="button" class="action-btn edit-btn">Edit</button>
-                            <button type="button" class="action-btn delete-btn">Delete</button>
+                            <button type="button" class="action-btn edit-btn" aria-label="Edit {{ link_item.title | e }}">Edit</button>
+                            <button type="button" class="action-btn delete-btn" aria-label="Delete {{ link_item.title | e }}">Delete</button>
                         </div>
                     </div>
                     
                     {% if link_item.description %}
-                    <div class="link-description">{{ link_item.description | truncate(120) }}</div>
+                    <div class="link-description">{{ link_item.description | e | truncate(120) }}</div>
                     {% endif %}
                     
                     <div class="link-meta">
                         {% if link_item.category %}
-                        <span class="link-category">{{ link_item.category | capitalize }}</span>
+                        <span class="link-category">{{ link_item.category | capitalize | e }}</span>
                         {% endif %}
                         
-                        <div class="link-keywords">
-                            {% if link_item.get_keywords_list() %}
-                            {% set keywords = link_item.get_keywords_list() %}
+                        {% set keywords = link_item.get_keywords_list() %}
+                        {% if keywords %}
+                        <div class="link-keywords" aria-label="Keywords">
                             {% for keyword in keywords[:3] %}
-                            <span class="keyword-tag">{{ keyword }}</span>
+                            <span class="keyword-tag">{{ keyword | e }}</span>
                             {% endfor %}
                             {% if keywords|length > 3 %}
-                            <span class="keyword-tag">...</span>
-                            {% endif %}
+                            <span class="keyword-tag" aria-label="more keywords">...</span>
                             {% endif %}
                         </div>
+                        {% endif %}
                         
-                        <span class="link-date">{{ link_item.created_at.strftime('%b %d, %Y') }}</span>
+                        <time class="link-date" datetime="{{ link_item.created_at.strftime('%Y-%m-%d') }}">{{ link_item.created_at.strftime('%b %d, %Y') }}</time>
                     </div>
-                </div>
+                </article>
                 {% endfor %}
             </div>
             {% else %}
@@ -158,14 +174,19 @@
                 <div class="empty-content">
                     <h3>
                         {% if search_term or selected_category %}
-                        No links match your search criteria.
+                        No links match your search. Try adjusting your filters.
                         {% else %}
-                        No links saved yet.
+                        Your LinkSaver is empty!
                         {% endif %}
                     </h3>
                     {% if not search_term and not selected_category %}
-                    <p>Start building your collection by adding your first link!</p>
-                    <button type="button" class="btn btn-primary" id="emptyStateAddLinkBtn">Add Your First Link</button>
+                    <p>Ready to save your first important link?</p>
+                    <button type="button" class="btn btn-primary" id="emptyStateAddLinkBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16" style="margin-right: 0.3em;">
+                           <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                        </svg>
+                        Add Your First Link
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -174,11 +195,11 @@
     </main>
 
     <!-- Add/Edit Link Modal -->
-    <div class="modal-overlay" id="linkModal">
+    <div class="modal-overlay" id="linkModal" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
         <div class="modal">
             <div class="modal-header">
                 <h3 id="modalTitle">Add New Link</h3>
-                <button type="button" class="close-btn" id="closeModalBtn">×</button>
+                <button type="button" class="close-btn" id="closeModalBtn" aria-label="Close modal">×</button>
             </div>
             <div class="modal-body">
                 <form id="linkForm" method="POST" action="">
@@ -186,17 +207,19 @@
                     
                     <div class="form-group">
                         <label for="linkUrl">URL *</label>
-                        <input type="url" id="linkUrl" name="url" required placeholder="https://example.com"/>
+                        <input type="url" id="linkUrl" name="url" required placeholder="https://example.com" aria-describedby="urlError"/>
+                        <span id="urlError" class="form-error-message" role="alert"></span>
                     </div>
                     
                     <div class="form-group">
                         <label for="linkTitle">Title *</label>
-                        <input type="text" id="linkTitle" name="title" required placeholder="Enter link title"/>
+                        <input type="text" id="linkTitle" name="title" required placeholder="Enter link title" aria-describedby="titleError"/>
+                        <span id="titleError" class="form-error-message" role="alert"></span>
                     </div>
                     
                     <div class="form-group">
                         <label for="linkDescription">Description</label>
-                        <textarea id="linkDescription" name="description" placeholder="Brief description of the link (optional)"></textarea>
+                        <textarea id="linkDescription" name="description" placeholder="Brief description of the link (optional)" rows="3"></textarea>
                     </div>
                     
                     <div class="form-group">
@@ -204,15 +227,15 @@
                         <select id="linkCategoryModal" name="category">
                             <option value="">Select Category</option>
                             {% for cat_opt in modal_form_categories %}
-                            <option value="{{ cat_opt }}">{{ cat_opt | capitalize }}</option>
+                            <option value="{{ cat_opt | e }}">{{ cat_opt | capitalize | e }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="linkKeywords">Keywords</label>
-                        <input type="text" id="linkKeywords" name="keywords" placeholder="Separate keywords with commas (e.g. tutorial, javascript)"/>
-                        <small class="form-help">Use keywords to make your links easier to find later</small>
+                        <input type="text" id="linkKeywords" name="keywords" placeholder="e.g., tutorial, javascript, design"/>
+                        <small class="form-help">Separate keywords with commas. Helps in searching.</small>
                     </div>
                     
                     <div class="form-actions">
@@ -225,14 +248,14 @@
     </div>
 
     <!-- Link Details Modal -->
-    <div class="modal-overlay" id="detailsModal">
+    <div class="modal-overlay" id="detailsModal" role="dialog" aria-labelledby="detailsModalTitle" aria-modal="true">
         <div class="modal">
             <div class="modal-header">
-                <h3>Link Details</h3>
-                <button type="button" class="close-btn" id="closeDetailsModalBtn">×</button>
+                <h3 id="detailsModalTitle">Link Details</h3>
+                <button type="button" class="close-btn" id="closeDetailsModalBtn" aria-label="Close modal">×</button>
             </div>
             <div class="modal-body">
-                <div class="link-details" id="linkDetailsContent">
+                <div class="link-details-content" id="linkDetailsContent">
                     <!-- Link details will be populated by JavaScript -->
                 </div>
                 <div class="details-actions">
@@ -245,31 +268,35 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="deleteModal">
+    <div class="modal-overlay" id="deleteModal" role="dialog" aria-labelledby="deleteModalTitle" aria-modal="true">
         <div class="modal modal-small">
             <div class="modal-header">
-                <h3>Confirm Delete</h3>
-                <button type="button" class="close-btn" id="closeDeleteModalBtn">×</button>
+                <h3 id="deleteModalTitle">Confirm Delete</h3>
+                <button type="button" class="close-btn" id="closeDeleteModalBtn" aria-label="Close modal">×</button>
             </div>
             <div class="modal-body">
                 <form id="deleteLinkForm" method="POST" action="">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <p>Are you sure you want to delete "<strong id="deleteLinkTitleText"></strong>"? This action cannot be undone.</p>
+                    <p>Are you sure you want to delete "<strong id="deleteLinkTitleText"></strong>"?<br/> This action cannot be undone.</p>
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
-                        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">Yes, Delete</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
     
+    <div class="visually-hidden">
+        <!-- For screen readers, if needed -->
+    </div>
+
     <script>
         // Pass base URLs to JavaScript for constructing form actions
         const appConfig = {
             addLinkUrl: "{{ url_for('dashboard.add_link') }}",
-            editLinkBaseUrl: "{{ url_for('dashboard.edit_link', link_id=0) }}".replace('/0', ''),
-            deleteLinkBaseUrl: "{{ url_for('dashboard.delete_link', link_id=0) }}".replace('/0', '')
+            editLinkBaseUrl: "{{ url_for('dashboard.edit_link', link_id=0) }}".replace('/0', ''), // Ensure trailing slash if base
+            deleteLinkBaseUrl: "{{ url_for('dashboard.delete_link', link_id=0) }}".replace('/0', '') // Ensure trailing slash if base
         };
     </script>
     <script src="{{ url_for('static', filename='js/users/dashboard.js') }}"></script>

@@ -14,7 +14,11 @@
     <nav class="navbar">
       <div class="nav-container">
         <div class="logo">
-          <h2>LINKSaver</h2>
+          <img
+            src="{{url_for('static', filename='images/linksaverlogo.jpg')}}"
+            alt="LINKSaver Logo"
+            id="appLogo"
+          />
         </div>
         <div class="nav-buttons">
           <button class="btn-secondary" id="loginBtn">Login</button>
@@ -141,7 +145,12 @@
       <div class="footer-container">
         <div class="footer-content">
           <div class="footer-brand">
-            <h3>LINKSaver</h3>
+            <!-- MODIFIED: Replaced h3 with img tag for logo in footer, assuming same logo or different text -->
+            <img
+              src="{{url_for('static', filename='images/logo.png')}}"
+              alt="LINKSaver Logo"
+              class="footer-logo-img"
+            />
             <p>Your personal link management solution</p>
           </div>
           <div class="footer-links">
@@ -151,7 +160,7 @@
           </div>
         </div>
         <div class="footer-bottom">
-          <p>&copy; 2025 LINKSaver. All rights reserved.</p>
+          <p>© 2025 LINKSaver. All rights reserved.</p>
         </div>
       </div>
     </footer>
@@ -159,7 +168,7 @@
     <!-- Auth Modals -->
     <div id="authModal" class="modal">
       <div class="modal-content">
-        <span class="close">&times;</span>
+        <span class="close">×</span>
 
         <!-- Login Form -->
         <div id="loginForm" class="auth-form active">
@@ -281,7 +290,7 @@
       messages %} {% for category, message in messages %}
       <div class="flash-message flash-{{ category }}">
         {{ message }}
-        <button class="flash-close">&times;</button>
+        <button class="flash-close">×</button>
       </div>
       {% endfor %} {% endif %} {% endwith %}
     </div>

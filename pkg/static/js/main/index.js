@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize auth modals
   initAuthModals();
   // Initialize flash messages
-  initFlashMessages();
+  initFlashMessages(); // This will now handle both server-rendered and URL-param messages
   // Check for URL parameters to show specific modal
   checkUrlParams();
 });
@@ -368,14 +368,59 @@ function isValidEmail(email) {
 }
 
 // Flash Messages
+// MODIFIED: initFlashMessages to handle server-rendered messages and their close buttons
 function initFlashMessages() {
-  // Check if there are flash messages to show from server
+  // Handle flash messages from server-side rendering (Jinja2)
+  const existingFlashMessages = document.querySelectorAll(
+    "#flashMessages .flash-message"
+  );
+
+  existingFlashMessages.forEach((flashDiv) => {
+    const autoRemoveTime = 10000; // 10 seconds
+
+    // Auto remove after 10 seconds
+    setTimeout(() => {
+      if (flashDiv.parentNode) {
+        flashDiv.style.animation = "slideOutRight 0.3s ease forwards";
+        setTimeout(() => {
+          if (flashDiv.parentNode) {
+            flashDiv.parentNode.removeChild(flashDiv);
+          }
+        }, 300); // Match animation duration
+      }
+    }, autoRemoveTime);
+
+    // Handle manual close button
+    const closeButton = flashDiv.querySelector(".flash-close");
+    if (closeButton) {
+      closeButton.addEventListener("click", function () {
+        flashDiv.style.animation = "slideOutRight 0.3s ease forwards";
+        setTimeout(() => {
+          if (flashDiv.parentNode) {
+            flashDiv.parentNode.removeChild(flashDiv);
+          }
+        }, 300);
+      });
+    } else {
+      // Fallback if no close button, make whole message clickable (like dynamically added ones)
+      flashDiv.addEventListener("click", function () {
+        this.style.animation = "slideOutRight 0.3s ease forwards";
+        setTimeout(() => {
+          if (this.parentNode) {
+            this.parentNode.removeChild(this);
+          }
+        }, 300);
+      });
+    }
+  });
+
+  // Handle flash messages from URL parameters (client-side generated)
   const urlParams = new URLSearchParams(window.location.search);
   const message = urlParams.get("message");
   const type = urlParams.get("type");
 
   if (message && type) {
-    showFlashMessage(decodeURIComponent(message), type);
+    showFlashMessage(decodeURIComponent(message), type); // This function already handles its own dismissal
     // Clean URL parameters but preserve show_login
     const showLogin = urlParams.get("show_login");
     const newUrl = showLogin
@@ -385,6 +430,7 @@ function initFlashMessages() {
   }
 }
 
+// MODIFIED: showFlashMessage to use 10-second timeout
 function showFlashMessage(message, type = "info") {
   const container = document.getElementById("flashMessages");
   if (!container) return;
@@ -393,28 +439,37 @@ function showFlashMessage(message, type = "info") {
   flashDiv.className = `flash-message flash-${type}`;
   flashDiv.textContent = message;
 
-  // Add click to dismiss
+  // For consistency, you might want to add a close button here as well,
+  // similar to the server-rendered ones. Example:
+  // const closeBtnElement = document.createElement('button');
+  // closeBtnElement.className = 'flash-close';
+  // closeBtnElement.innerHTML = '×';
+  // flashDiv.appendChild(closeBtnElement);
+  // closeBtnElement.addEventListener('click', () => { /* remove logic */ });
+  // Or, stick to the current "click anywhere on message to dismiss" for dynamically created ones.
+
+  // Add click to dismiss (current behavior for client-side messages)
   flashDiv.addEventListener("click", function () {
-    this.style.animation = "slideOutRight 0.3s ease";
+    this.style.animation = "slideOutRight 0.3s ease forwards"; // Use 'forwards'
     setTimeout(() => {
       if (this.parentNode) {
         this.parentNode.removeChild(this);
       }
-    }, 300);
+    }, 300); // Animation duration
   });
 
   container.appendChild(flashDiv);
 
-  // Auto remove after 5 seconds for success messages, 7 seconds for others
-  const autoRemoveTime = type === "success" ? 5000 : 7000;
+  // Auto remove after 10 seconds
+  const autoRemoveTime = 10000; // MODIFIED: Changed to 10 seconds
   setTimeout(() => {
     if (flashDiv.parentNode) {
-      flashDiv.style.animation = "slideOutRight 0.3s ease";
+      flashDiv.style.animation = "slideOutRight 0.3s ease forwards"; // Use 'forwards'
       setTimeout(() => {
         if (flashDiv.parentNode) {
           flashDiv.parentNode.removeChild(flashDiv);
         }
-      }, 300);
+      }, 300); // Animation duration
     }
   }, autoRemoveTime);
 }
