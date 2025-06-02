@@ -1,0 +1,165 @@
+/* static/css/preloader.css */
+:root {
+  --preloader-bg-color: #1e1e2f; /* Charcoal Gray */
+  --preloader-primary-accent: #4fa3f7; /* Sky Blue */
+  --preloader-secondary-accent: #a6e22e; /* Lime Green */
+  --preloader-text-color: #ffffff; /* White */
+  --preloader-alt-accent: #7c5cff; /* Violet Blue */
+}
+
+#preloader {
+  position: fixed;
+  inset: 0; /* shorthand for top: 0; right: 0; bottom: 0; left: 0; */
+  background-color: var(--preloader-bg-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Ensure it's on top of other content */
+  opacity: 1;
+  visibility: visible;
+  /* Smooth transition for hiding */
+  transition: opacity 0.6s ease-out, visibility 0s linear 0.6s;
+}
+
+#preloader.loaded {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.spinner {
+  position: relative;
+  width: 100px; /* Main container for the animation */
+  height: 100px;
+  margin-bottom: 20px; /* Space between animation and text */
+}
+
+.center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background-color: var(--preloader-primary-accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px var(--preloader-primary-accent),
+    0 0 20px var(--preloader-primary-accent),
+    0 0 5px var(--preloader-alt-accent); /* Added alt accent for depth */
+  animation: pulseCenter 1.8s infinite ease-in-out;
+}
+
+.orbit {
+  position: absolute;
+  top: 50%; /* Center orbits relative to spinner */
+  left: 50%;
+  border: 3px solid transparent; /* Only one segment will be colored */
+  border-radius: 50%;
+  animation-name: spin;
+  animation-iteration-count: infinite;
+}
+
+/* Common style for the "satellite" on each orbit */
+.orbit::before {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  /* Position satellite at the 12 o'clock of its orbit path, on the border */
+  top: -6.5px; /* -(satellite_height/2 + border_thickness/2) = -(5px + 1.5px) */
+  left: 50%;
+  transform: translateX(-50%); /* Center the satellite on its x-axis */
+}
+
+.orbit-1 {
+  width: 100px; /* Largest orbit */
+  height: 100px;
+  margin-left: -50px; /* -width/2 to truly center */
+  margin-top: -50px; /* -height/2 to truly center */
+  border-top-color: var(--preloader-primary-accent); /* Sky Blue trail */
+  animation-duration: 2s;
+  animation-timing-function: linear;
+}
+.orbit-1::before {
+  background-color: var(--preloader-primary-accent);
+  box-shadow: 0 0 8px var(--preloader-primary-accent);
+}
+
+.orbit-2 {
+  width: 70px; /* Medium orbit */
+  height: 70px;
+  margin-left: -35px;
+  margin-top: -35px;
+  border-top-color: var(--preloader-secondary-accent); /* Lime Green trail */
+  animation-duration: 2.5s;
+  animation-timing-function: ease-in-out; /* Different easing for variety */
+  animation-direction: reverse; /* Spin the other way */
+}
+.orbit-2::before {
+  background-color: var(--preloader-secondary-accent);
+  box-shadow: 0 0 8px var(--preloader-secondary-accent);
+}
+
+.orbit-3 {
+  width: 40px; /* Smallest orbit */
+  height: 40px;
+  margin-left: -20px;
+  margin-top: -20px;
+  border-top-color: var(--preloader-alt-accent); /* Violet Blue trail */
+  animation-duration: 1.8s;
+  animation-timing-function: linear;
+}
+.orbit-3::before {
+  background-color: var(--preloader-alt-accent);
+  box-shadow: 0 0 8px var(--preloader-alt-accent);
+}
+
+.preloader-text {
+  color: var(--preloader-text-color);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* Modern, sleek font */
+  font-size: 1.3em;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  opacity: 0; /* Start hidden, fade in with animation */
+  animation: fadeInText 1.2s ease-out 0.3s forwards; /* Delay and keep final state */
+}
+
+/* Keyframe Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseCenter {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.9);
+    box-shadow: 0 0 8px var(--preloader-primary-accent),
+      0 0 15px var(--preloader-primary-accent),
+      0 0 3px var(--preloader-alt-accent);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    box-shadow: 0 0 12px var(--preloader-primary-accent),
+      0 0 25px var(--preloader-primary-accent),
+      0 0 8px var(--preloader-alt-accent);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInText {
+  from {
+    opacity: 0;
+    transform: translateY(15px); /* Start slightly below and rise */
+  }
+  to {
+    opacity: 0.85; /* Slightly subdued so it doesn't overpower the animation */
+    transform: translateY(0);
+  }
+}

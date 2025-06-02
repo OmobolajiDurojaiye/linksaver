@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LinkSaver - Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/users/dashboard.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main/preloader.css') }}" />
     <style>
         /* Minor inline styles for quick overrides or specific adjustments if needed. 
            Preferably keep styles in dashboard.css */
@@ -27,6 +28,19 @@
     </style>
 </head>
 <body>
+
+  <!-- Preloader Start -->
+<div id="preloader">
+    <div class="spinner">
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+        <div class="orbit orbit-3"></div>
+        <div class="center-dot"></div>
+    </div>
+    <div class="preloader-text">LINKSAVER</div>
+</div>
+<!-- Preloader End -->
+    
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -300,5 +314,6 @@
         };
     </script>
     <script src="{{ url_for('static', filename='js/users/dashboard.js') }}"></script>
+    <script src="{{url_for('static', filename='js/main/preloader.js')}}"></script>
 </body>
 </html>

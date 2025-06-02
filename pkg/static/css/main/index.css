@@ -180,14 +180,11 @@ body {
 
 /* MODIFIED: Styles for the logo image */
 .logo #appLogo {
-  height: 36px; /* Adjust height as needed */
-  width: auto; /* Maintain aspect ratio */
-  display: block; /* Helps with alignment and spacing */
-  /* If your logo needs specific filter effects for visibility on dark bg, add them here */
-  /* e.g., filter: brightness(0) invert(1); for a dark logo on dark background */
+  height: 36px;
+  width: auto;
+  display: block;
 }
 
-/* REMOVED or COMMENTED OUT: Old .logo h2 styles if they conflict or are no longer needed */
 /*
 .logo h2 {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));

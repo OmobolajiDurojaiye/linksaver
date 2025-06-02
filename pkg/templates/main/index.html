@@ -8,8 +8,25 @@
       rel="stylesheet"
       href="{{url_for('static', filename='css/main/index.css')}}"
     />
+
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/main/preloader.css') }}"
+    />
   </head>
   <body>
+    <!-- Preloader Start -->
+    <div id="preloader">
+      <div class="spinner">
+        <div class="orbit orbit-1"></div>
+        <div class="orbit orbit-2"></div>
+        <div class="orbit orbit-3"></div>
+        <div class="center-dot"></div>
+      </div>
+      <div class="preloader-text">LINKSAVER</div>
+    </div>
+    <!-- Preloader End -->
+
     <!-- Navigation -->
     <nav class="navbar">
       <div class="nav-container">
@@ -147,7 +164,7 @@
           <div class="footer-brand">
             <!-- MODIFIED: Replaced h3 with img tag for logo in footer, assuming same logo or different text -->
             <img
-              src="{{url_for('static', filename='images/logo.png')}}"
+              src="{{url_for('static', filename='images/linksaverlogo.jpg')}}"
               alt="LINKSaver Logo"
               class="footer-logo-img"
             />
@@ -296,5 +313,6 @@
     </div>
 
     <script src="{{url_for('static', filename='js/main/index.js')}}"></script>
+    <script src="{{url_for('static', filename='js/main/preloader.js')}}"></script>
   </body>
 </html>
