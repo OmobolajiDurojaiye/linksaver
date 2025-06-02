@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LINKSaver - Save Your Favorite Links</title>
+    <link
+      rel="stylesheet"
+      href="{{url_for('static', filename='css/main/index.css')}}"
+    />
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="logo">
+          <h2>LINKSaver</h2>
+        </div>
+        <div class="nav-buttons">
+          <button class="btn-secondary" id="loginBtn">Login</button>
+          <button class="btn-primary" id="signupBtn">Sign Up</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-container">
+        <div class="hero-content">
+          <h1 class="hero-title">Never Lose Important Links Again</h1>
+          <p class="hero-subtitle">
+            Save, organize, and quickly find all your favorite websites in one
+            beautiful place. No more lost bookmarks or forgotten pages.
+          </p>
+          <div class="hero-buttons">
+            <button class="btn-primary large" id="getStartedBtn">
+              Get Started Free
+            </button>
+            <button class="btn-secondary large" id="learnMoreBtn">
+              Learn More
+            </button>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="link-preview-card">
+            <div class="link-header">
+              <div class="link-icon"></div>
+              <div class="link-info">
+                <div class="link-title">Amazing Article</div>
+                <div class="link-url">example.com/article</div>
+              </div>
+            </div>
+            <div class="link-tags">
+              <span class="tag">reading</span>
+              <span class="tag">tech</span>
+            </div>
+          </div>
+          <div class="link-preview-card">
+            <div class="link-header">
+              <div class="link-icon"></div>
+              <div class="link-info">
+                <div class="link-title">Recipe Collection</div>
+                <div class="link-url">foodblog.com/recipes</div>
+              </div>
+            </div>
+            <div class="link-tags">
+              <span class="tag">cooking</span>
+            </div>
+          </div>
+          <div class="link-preview-card">
+            <div class="link-header">
+              <div class="link-icon"></div>
+              <div class="link-info">
+                <div class="link-title">Design Inspiration</div>
+                <div class="link-url">design.com/gallery</div>
+              </div>
+            </div>
+            <div class="link-tags">
+              <span class="tag">design</span>
+              <span class="tag">inspiration</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+      <div class="features-container">
+        <h2 class="section-title">Why Choose LINKSaver?</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🔗</div>
+            <h3>Quick Save</h3>
+            <p>
+              Copy and paste any URL to save it instantly. No complex forms or
+              lengthy processes.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <h3>Smart Search</h3>
+            <p>
+              Find your links instantly using keywords, tags, or even partial
+              URLs.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3>Access Anywhere</h3>
+            <p>
+              Your links are synced across all devices. Access them from phone,
+              tablet, or desktop.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🏷️</div>
+            <h3>Smart Organization</h3>
+            <p>
+              Tag and categorize your links for better organization and easier
+              discovery.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+      <div class="cta-container">
+        <h2>Ready to Get Organized?</h2>
+        <p>Join thousands of users who never lose important links anymore.</p>
+        <button class="btn-primary large" id="ctaSignupBtn">
+          Start Saving Links Now
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <h3>LINKSaver</h3>
+            <p>Your personal link management solution</p>
+          </div>
+          <div class="footer-links">
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+            <a href="#contact">Contact Us</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2025 LINKSaver. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Auth Modals -->
+    <div id="authModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="auth-form active">
+          <h2>Welcome Back</h2>
+          <p class="auth-subtitle">Sign in to your account</p>
+
+          <form
+            id="loginFormElement"
+            method="POST"
+            action="{{ url_for('auth.login') }}"
+          >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+              <label for="loginEmail">Email</label>
+              <input
+                type="email"
+                id="loginEmail"
+                name="email"
+                required
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <input
+                type="password"
+                id="loginPassword"
+                name="password"
+                required
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button type="submit" class="btn-primary full-width">
+              Sign In
+            </button>
+
+            <div class="auth-switch">
+              <p>
+                Don't have an account?
+                <a href="#" id="switchToSignup">Sign up</a>
+              </p>
+            </div>
+          </form>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="signupForm" class="auth-form">
+          <h2>Create Account</h2>
+          <p class="auth-subtitle">Join thousands of organized users</p>
+
+          <form id="signupFormElement" method="POST" action="/auth/signup">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+              <label for="signupName">Full Name</label>
+              <input
+                type="text"
+                id="signupName"
+                name="name"
+                required
+                placeholder="Enter your full name"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="signupEmail">Email</label>
+              <input
+                type="email"
+                id="signupEmail"
+                name="email"
+                required
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="signupPassword">Password</label>
+              <input
+                type="password"
+                id="signupPassword"
+                name="password"
+                required
+                placeholder="Create a password"
+                minlength="6"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="confirmPassword">Confirm Password</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirm_password"
+                required
+                placeholder="Confirm your password"
+                minlength="6"
+              />
+            </div>
+
+            <button type="submit" class="btn-primary full-width">
+              Create Account
+            </button>
+
+            <div class="auth-switch">
+              <p>
+                Already have an account?
+                <a href="#" id="switchToLogin">Sign in</a>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flash Messages Container -->
+    <div id="flashMessages" class="flash-container">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div class="flash-message flash-{{ category }}">
+        {{ message }}
+        <button class="flash-close">&times;</button>
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
+    </div>
+
+    <script src="{{url_for('static', filename='js/main/index.js')}}"></script>
+  </body>
+</html>
