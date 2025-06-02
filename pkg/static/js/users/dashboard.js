@@ -3,9 +3,12 @@
 class LinkSaver {
   constructor() {
     this.currentLinkDataForModal = null; // Store data of the link being viewed/edited
+    this.metadataFetchController = null; // For aborting previous fetch requests
     this.initializeEventListeners();
     this.autoDismissServerFlashMessages();
     this.initLazyLoadObserver(); // For potential future image previews or heavy content
+    this.initializeMetadataFetching(); // For URL input blur
+    this.initializeUserOverrideListeners(); // For title/description inputs
   }
 
   autoDismissServerFlashMessages() {
@@ -132,6 +135,250 @@ class LinkSaver {
     });
   }
 
+  initializeMetadataFetching() {
+    const linkUrlInput = document.getElementById("linkUrl");
+    if (linkUrlInput) {
+      linkUrlInput.addEventListener("blur", (e) => this.handleUrlInputBlur(e));
+      this.addMetadataFetchIndicator(linkUrlInput); // Add visual indicator
+    }
+  }
+
+  addMetadataFetchIndicator(urlInput) {
+    const indicator = document.createElement("span");
+    indicator.id = "metadataFetchIndicator";
+    indicator.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>`; // Magnifying glass icon
+    indicator.style.position = "absolute";
+    indicator.style.right = "10px";
+    indicator.style.top = "50%";
+    indicator.style.transform = "translateY(-50%) scale(0.8)";
+    indicator.style.display = "none"; // Hidden by default
+    indicator.style.color = "var(--text-muted)";
+    indicator.style.pointerEvents = "none"; // Don't interfere with input clicks
+
+    const parentFormGroup = urlInput.closest(".form-group");
+    if (parentFormGroup) {
+      if (getComputedStyle(parentFormGroup).position === "static") {
+        parentFormGroup.style.position = "relative";
+      }
+      // Insert it before the error span if present, or just append
+      const errorSpan = parentFormGroup.querySelector(".form-error-message");
+      if (errorSpan) {
+        parentFormGroup.insertBefore(indicator, errorSpan);
+      } else {
+        parentFormGroup.appendChild(indicator);
+      }
+    }
+  }
+
+  showMetadataFetchIndicator(show = true) {
+    const indicator = document.getElementById("metadataFetchIndicator");
+    if (indicator) {
+      indicator.style.display = show ? "inline-block" : "none";
+    }
+  }
+
+  async handleUrlInputBlur(event) {
+    const urlField = event.target;
+    const urlValue = urlField.value.trim();
+    const linkForm = urlField.closest("form");
+
+    if (!urlValue) {
+      this.showMetadataFetchIndicator(false);
+      this.resetMetadataPreview();
+      return;
+    }
+
+    try {
+      // Basic client-side validation to ensure it's a plausible URL structure
+      // The server will do more robust validation. Add http if missing for URL constructor.
+      new URL(urlValue.startsWith("http") ? urlValue : `http://${urlValue}`);
+    } catch (_) {
+      // Don't show JS notification here, server will validate.
+      // Just ensure indicator is off and preview reset.
+      this.showMetadataFetchIndicator(false);
+      this.resetMetadataPreview();
+      return;
+    }
+
+    if (this.metadataFetchController) {
+      this.metadataFetchController.abort(); // Abort previous request
+    }
+    this.metadataFetchController = new AbortController();
+    const signal = this.metadataFetchController.signal;
+
+    this.showMetadataFetchIndicator(true);
+    this.resetMetadataPreview(true); // Keep preview area visible with loading state
+
+    try {
+      const csrfToken = linkForm.querySelector(
+        'input[name="csrf_token"]'
+      ).value;
+      const response = await fetch(appConfig.fetchMetadataUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({ url: urlValue }),
+        signal: signal,
+      });
+
+      this.showMetadataFetchIndicator(false);
+
+      if (signal.aborted) {
+        console.log("Metadata fetch aborted.");
+        return;
+      }
+
+      const metadata = await response.json();
+
+      if (!response.ok) {
+        this.showJsNotification(
+          `Metadata fetch: ${metadata.error || response.statusText}`,
+          "error"
+        );
+        this.resetMetadataPreview(); // Hide preview on error
+        return;
+      }
+
+      const titleField = linkForm.querySelector("#linkTitle");
+      const descriptionField = linkForm.querySelector("#linkDescription");
+
+      if (
+        metadata.title &&
+        (!titleField.value.trim() || titleField.dataset.autoFilled === "true")
+      ) {
+        titleField.value = metadata.title;
+        titleField.dataset.autoFilled = "true";
+      }
+      if (
+        metadata.description &&
+        (!descriptionField.value.trim() ||
+          descriptionField.dataset.autoFilled === "true")
+      ) {
+        descriptionField.value = metadata.description;
+        descriptionField.dataset.autoFilled = "true";
+      }
+
+      this.updateMetadataPreview(metadata);
+
+      if (metadata.title || metadata.description || metadata.image_url) {
+        this.showJsNotification("Metadata auto-filled.", "info");
+      } else {
+        this.showJsNotification(
+          "No specific metadata found to auto-fill.",
+          "info"
+        );
+      }
+    } catch (error) {
+      this.showMetadataFetchIndicator(false);
+      this.resetMetadataPreview();
+      if (error.name === "AbortError") {
+        // This is expected if a new request starts or modal closes
+        console.log("Metadata fetch aborted by user action.");
+      } else {
+        console.error("Error fetching metadata:", error);
+        this.showJsNotification(
+          "Client-side error fetching metadata. Check console.",
+          "error"
+        );
+      }
+    } finally {
+      this.metadataFetchController = null;
+    }
+  }
+
+  initializeUserOverrideListeners() {
+    const linkForm = document.getElementById("linkForm");
+    if (linkForm) {
+      const titleField = linkForm.querySelector("#linkTitle");
+      const descriptionField = linkForm.querySelector("#linkDescription");
+
+      if (titleField) {
+        titleField.addEventListener("input", () => {
+          titleField.dataset.autoFilled = "false";
+        });
+      }
+      if (descriptionField) {
+        descriptionField.addEventListener("input", () => {
+          descriptionField.dataset.autoFilled = "false";
+        });
+      }
+    }
+  }
+
+  updateMetadataPreview(metadata) {
+    const previewArea = document.getElementById("metadataPreviewArea");
+    const imagePreview = document.getElementById("metadataImagePreview");
+    const noImageText = document.getElementById("metadataNoImageText");
+    const descriptionPreview = document.getElementById(
+      "metadataDescriptionPreview"
+    );
+
+    if (!previewArea || !imagePreview || !noImageText || !descriptionPreview)
+      return;
+
+    let showPreview = false;
+
+    if (metadata.image_url) {
+      imagePreview.src = metadata.image_url;
+      imagePreview.style.display = "block";
+      noImageText.style.display = "none";
+      showPreview = true;
+    } else {
+      imagePreview.style.display = "none";
+      imagePreview.src = "#"; // Clear previous image
+      noImageText.style.display = "flex";
+    }
+
+    if (metadata.description) {
+      descriptionPreview.textContent =
+        metadata.description.length > 150
+          ? metadata.description.substring(0, 147) + "..."
+          : metadata.description;
+      showPreview = true;
+    } else {
+      descriptionPreview.textContent = "No description fetched.";
+    }
+
+    // Show preview area if there's an image or a description was fetched (even if empty string)
+    if (metadata.image_url || typeof metadata.description === "string") {
+      showPreview = true;
+    }
+
+    previewArea.style.display = showPreview ? "block" : "none";
+  }
+
+  resetMetadataPreview(showLoading = false) {
+    const previewArea = document.getElementById("metadataPreviewArea");
+    const imagePreview = document.getElementById("metadataImagePreview");
+    const noImageText = document.getElementById("metadataNoImageText");
+    const descriptionPreview = document.getElementById(
+      "metadataDescriptionPreview"
+    );
+
+    if (!previewArea || !imagePreview || !noImageText || !descriptionPreview)
+      return;
+
+    if (showLoading) {
+      previewArea.style.display = "block";
+      imagePreview.style.display = "none";
+      imagePreview.src = "#";
+      noImageText.style.display = "flex";
+      descriptionPreview.textContent = "Fetching metadata...";
+    } else {
+      previewArea.style.display = "none";
+      imagePreview.src = "#";
+      imagePreview.style.display = "none";
+      noImageText.style.display = "flex";
+      descriptionPreview.textContent = "";
+    }
+  }
+
   handleLinkSaverFormSubmit(event) {
     if (!this.validateLinkSaverForm(event.target)) {
       event.preventDefault(); // Stop form submission if client-side validation fails
@@ -178,22 +425,35 @@ class LinkSaver {
 
   showFieldError(field, message) {
     field.classList.add("error-input"); // Add a class for styling
-    const errorElement = document.createElement("span");
-    errorElement.className = "form-error-message";
-    errorElement.textContent = message;
-    // Insert after field or its wrapper
-    if (field.parentNode.classList.contains("form-group")) {
-      field.parentNode.appendChild(errorElement);
-    } else {
-      field.insertAdjacentElement("afterend", errorElement);
+    const errorElementId = `${field.id}Error`; // Convention for error element ID
+    let errorElement = document.getElementById(errorElementId);
+
+    if (!errorElement) {
+      // If the dedicated span (e.g., #urlError) doesn't exist or we want a new one
+      errorElement = document.createElement("span");
+      errorElement.id = errorElementId; // Assign ID if creating dynamically
+      errorElement.className = "form-error-message";
+      errorElement.setAttribute("role", "alert");
+
+      // Insert after field or its wrapper
+      if (field.parentNode.classList.contains("form-group")) {
+        field.parentNode.appendChild(errorElement);
+      } else {
+        field.insertAdjacentElement("afterend", errorElement);
+      }
     }
+    errorElement.textContent = message;
+    errorElement.style.display = "block"; // Ensure it's visible
   }
 
   clearFieldErrors(form) {
     form
       .querySelectorAll(".error-input")
       .forEach((el) => el.classList.remove("error-input"));
-    form.querySelectorAll(".form-error-message").forEach((el) => el.remove());
+    form.querySelectorAll(".form-error-message").forEach((el) => {
+      el.textContent = ""; // Clear text
+      el.style.display = "none"; // Hide it
+    });
   }
 
   openAddLinkModal() {
@@ -203,6 +463,13 @@ class LinkSaver {
     linkForm.reset();
     this.clearFieldErrors(linkForm); // Clear errors when opening
     linkForm.action = appConfig.addLinkUrl;
+
+    const titleField = linkForm.querySelector("#linkTitle");
+    const descriptionField = linkForm.querySelector("#linkDescription");
+    if (titleField) titleField.dataset.autoFilled = "true"; // Allow autofill on first try for new link
+    if (descriptionField) descriptionField.dataset.autoFilled = "true"; // Allow autofill
+
+    this.resetMetadataPreview();
     document.getElementById("linkUrl").focus(); // Focus on first field
     this.openModal("linkModal");
   }
@@ -226,6 +493,14 @@ class LinkSaver {
     document.getElementById("linkKeywords").value =
       this.currentLinkDataForModal.keywords || "";
 
+    const titleField = linkForm.querySelector("#linkTitle");
+    const descriptionField = linkForm.querySelector("#linkDescription");
+    // For edit, assume existing data is user-input, don't mark as auto-filled initially
+    // User might want to re-trigger autofill by clearing URL and blurring again
+    if (titleField) titleField.dataset.autoFilled = "false";
+    if (descriptionField) descriptionField.dataset.autoFilled = "false";
+
+    this.resetMetadataPreview(); // Also reset preview for edit modal
     document.getElementById("linkUrl").focus(); // Focus on first field
     this.openModal("linkModal");
   }
@@ -351,6 +626,12 @@ class LinkSaver {
       if (!anyOtherModalActive) {
         document.body.style.overflow = "";
       }
+      // If closing the link modal, abort any ongoing metadata fetch
+      if (modalId === "linkModal" && this.metadataFetchController) {
+        this.metadataFetchController.abort();
+        this.metadataFetchController = null;
+        this.showMetadataFetchIndicator(false); // Hide indicator
+      }
     }
   }
 
@@ -391,39 +672,31 @@ class LinkSaver {
   dismissNotification(notification) {
     if (notification && notification.parentElement) {
       notification.style.transition =
-        "opacity 0.4s ease, transform 0.4s ease, margin-bottom 0.4s ease";
+        "opacity 0.4s ease, transform 0.4s ease, margin-bottom 0.4s ease, padding 0.4s ease, height 0.4s ease";
       notification.style.opacity = "0";
       notification.style.transform = "translateX(110%)";
-      notification.style.marginBottom = `-${notification.offsetHeight}px`; // Collapse space
+      notification.style.paddingTop = "0";
+      notification.style.paddingBottom = "0";
+      notification.style.marginBottom = "0";
+      notification.style.height = "0";
       setTimeout(() => notification.remove(), 400);
     }
   }
 
   createNotificationsContainer() {
-    const container = document.createElement("div");
-    container.id = "js-notifications-container";
-    // Basic styling, primary styling from CSS file
-    container.style.position = "fixed";
-    container.style.zIndex = "10001"; // Above server flash potentially
-    document.body.appendChild(container);
+    let container = document.getElementById("js-notifications-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "js-notifications-container";
+      // Basic styling, primary styling from CSS file
+      // CSS file should handle position, z-index etc.
+      document.body.appendChild(container);
+    }
     return container;
   }
 
   initLazyLoadObserver() {
     // Placeholder for future lazy loading implementation if needed
-    // Example:
-    // const images = document.querySelectorAll('img[data-src]');
-    // const observer = new IntersectionObserver((entries, observer) => {
-    //   entries.forEach(entry => {
-    //     if (entry.isIntersecting) {
-    //       const img = entry.target;
-    //       img.src = img.dataset.src;
-    //       img.removeAttribute('data-src');
-    //       observer.unobserve(img);
-    //     }
-    //   });
-    // });
-    // images.forEach(img => observer.observe(img));
   }
 }
 

@@ -1,7 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
 from pkg.models import db, User, Link
 from pkg.routes.auth import login_required
 from sqlalchemy import or_
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
 
@@ -203,3 +206,120 @@ def delete_link(link_id):
         flash(f'Failed to delete link: {str(e)}', 'error')
     
     return redirect(url_for('dashboard.index'))
+
+@dashboard_bp.route("/fetch-metadata", methods=['POST'])
+@login_required
+def fetch_metadata_for_url():
+    """
+    Fetches metadata (title, description, image) for a given URL.
+    Accepts a JSON payload with a "url" key.
+    """
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_active:
+        return jsonify({'error': 'Authentication required.'}), 401
+
+    data = request.get_json()
+    url_to_fetch = data.get('url')
+
+    if not url_to_fetch:
+        return jsonify({'error': 'URL is required.'}), 400
+
+    try:
+        # Basic scheme validation/addition
+        if not (url_to_fetch.startswith('http://') or url_to_fetch.startswith('https://')):
+            # Check if it looks like a domain before prepending http, to avoid http://my search term
+            if '.' not in url_to_fetch.split('/')[0] or ' ' in url_to_fetch:
+                 return jsonify({'error': 'Invalid URL format. Please provide a full URL like https://example.com'}), 400
+            url_to_fetch = 'https://' + url_to_fetch # Default to https
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 LinkSaverClient/1.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9'
+        }
+        # Using a session for potential cookie handling and connection pooling if multiple requests were made
+        with requests.Session() as s:
+            response = s.get(url_to_fetch, headers=headers, timeout=10, allow_redirects=True)
+        
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+
+        content_type = response.headers.get('content-type', '').lower()
+        if 'html' not in content_type:
+            return jsonify({'error': 'URL does not point to an HTML page.'}), 400
+
+        soup = BeautifulSoup(response.content, 'lxml') # Use lxml; fall back to 'html.parser' if lxml not installed
+
+        metadata = {
+            'title': '',
+            'description': '',
+            'image_url': ''
+        }
+
+        # Fetch Title (Order: <title>, og:title, twitter:title)
+        if soup.title and soup.title.string:
+            metadata['title'] = soup.title.string.strip()
+        
+        if not metadata['title']:
+            og_title = soup.find('meta', property='og:title')
+            if og_title and og_title.get('content'):
+                metadata['title'] = og_title['content'].strip()
+        
+        if not metadata['title']:
+            twitter_title = soup.find('meta', attrs={'name': 'twitter:title'})
+            if twitter_title and twitter_title.get('content'):
+                metadata['title'] = twitter_title['content'].strip()
+
+        # Fetch Description (Order: meta description, og:description, twitter:description)
+        meta_description = soup.find('meta', attrs={'name': 'description'})
+        if meta_description and meta_description.get('content'):
+            metadata['description'] = meta_description['content'].strip()
+        
+        if not metadata['description']:
+            og_description = soup.find('meta', property='og:description')
+            if og_description and og_description.get('content'):
+                metadata['description'] = og_description['content'].strip()
+        
+        if not metadata['description']:
+            twitter_description = soup.find('meta', attrs={'name': 'twitter:description'})
+            if twitter_description and twitter_description.get('content'):
+                metadata['description'] = twitter_description['content'].strip()
+        
+        # Fetch Image URL (Order: og:image, twitter:image, apple-touch-icon, icon)
+        image_url_found = None
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            image_url_found = og_image['content']
+        
+        if not image_url_found:
+            twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
+            if twitter_image and twitter_image.get('content'):
+                image_url_found = twitter_image['content']
+        
+        if not image_url_found:
+            # Check for apple-touch-icon (often higher quality than favicon)
+            apple_icon = soup.find('link', rel='apple-touch-icon')
+            if apple_icon and apple_icon.get('href'):
+                image_url_found = apple_icon['href']
+        
+        if not image_url_found:
+            # Fallback to generic icon
+            icon_link = soup.find('link', rel='icon')
+            if icon_link and icon_link.get('href'):
+                image_url_found = icon_link['href']
+
+        if image_url_found:
+            # Resolve relative URL to absolute using the final URL after redirects
+            metadata['image_url'] = urljoin(response.url, image_url_found.strip())
+
+        return jsonify(metadata), 200
+
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Fetching URL timed out.'}), 408
+    except requests.exceptions.TooManyRedirects:
+        return jsonify({'error': 'Too many redirects for the URL.'}), 400
+    except requests.exceptions.RequestException as e:
+        current_app.logger.warning(f"RequestException fetching metadata for {url_to_fetch}: {str(e)}")
+        return jsonify({'error': f'Could not fetch URL. Please check the address and try again.'}), 400
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error fetching metadata for {url_to_fetch}: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred while parsing metadata.'}), 500
